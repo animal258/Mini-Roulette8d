@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Mini Roulette ⚡</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <style>
+    body {
+      background: linear-gradient(135deg, #3a1c71, #d76d77, #ffaf7b);
+      background-size: 400% 400%;
+      animation: gradientBG 15s ease infinite;
+      color: #fff;
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem;
+    }
+
+    @keyframes gradientBG {
+      0% {background-position: 0% 50%;}
+      50% {background-position: 100% 50%;}
+      100% {background-position: 0% 50%;}
+    }
+
+    input, select, button {
+      margin: 0.5rem;
+      padding: 0.6rem;
+      font-size: 1rem;
+      border-radius: 8px;
+      border: none;
+    }
+
+    button {
+      background: #f90;
+      color: #000;
+      cursor: pointer;
+    }
+
+    #top-section {
+      display: flex;
+      flex-direction: row;
+      justify-content: center;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 2rem;
+      margin-bottom: 2rem;
+    }
+
+    #wheel-container {
+      position: relative;
+      width: 300px;
+      height: 300px;
+      border-radius: 50%;
+      border: 8px solid #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #000;
+    }
+
+    #wheel {
+      font-size: 4rem;
+      transition: transform 1.5s ease-out;
+    }
+
+    .number-slot {
+      position: absolute;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      font-weight: bold;
+    }
+
+    #history-box {
+      width: 250px;
+      max-height: 300px;
+      overflow-y: auto;
+      background: rgba(0,0,0,0.4);
+      padding: 1rem;
+      border-radius: 10px;
+    }
+
+    #controls, #payment-section {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 1rem;
+      margin: 1rem 0;
+    }
+
+    #result {
+      margin-top: 1rem;
+      font-size: 1.2rem;
+    }
+
+    #qr {
+      margin: 1rem;
+      background: #fff;
+      display: inline-block;
+      padding: 10px;
+    }
+
+    #balance {
+      font-size: 2rem;
+      font-weight: bold;
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+    }
+
+    #rules {
+      font-size: 0.85rem;
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+    }
+
+    #auth {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+    }
+
+    #auth button {
+      margin-left: 0.5rem;
+    }
+  </style>
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-firestore.js"></script>
+</head>
+<body>
+  <div id="auth">
+    <button onclick="login()">Login</button>
+    <button onclick="register()">Register</button>
+    <button onclick="logout()">Logout</button>
+  </div>
+
+  <div id="rules">
+    🎯 Match the number to double your bet. Match the color to win half.
+  </div>
+
+  <h1>🎰 Mini Roulette ⚡</h1>
+  <p style="margin-top: 0.5rem;">Balance: <span id="balance">0</span> sats</p>
+
+  <div id="top-section">
+    <div id="wheel-container">
+      <div id="wheel"></div>
+      <!-- Numbers in circular arrangement -->
+      <div class="number-slot" style="top: 10px; left: 50%; transform: translateX(-50%);">1</div>
+      <div class="number-slot" style="top: 30px; right: 10px;">2</div>
+      <div class="number-slot" style="top: 50%; right: 10px; transform: translateY(-50%);">3</div>
+      <div class="number-slot" style="bottom: 30px; right: 10px;">4</div>
+      <div class="number-slot" style="bottom: 10px; left: 50%; transform: translateX(-50%);">5</div>
+      <div class="number-slot" style="bottom: 30px; left: 10px;">6</div>
+      <div class="number-slot" style="top: 50%; left: 10px; transform: translateY(-50%);">7</div>
+      <div class="number-slot" style="top: 30px; left: 10px;">8</div>
+      <div class="number-slot" style="top: 10px; left: 50%; transform: translateX(-50%);">9</div>
+      <div class="number-slot" style="top: 50%; right: 10px;">10</div>
+    </div>
+    <div id="history-box">
+      <h3>Game History</h3>
+      <ul id="history"></ul>
+    </div>
+  </div>
+
+  <div id="controls">
+    <input type="number" id="bet" placeholder="Bet (sats)" min="1"/>
+
+    <select id="number">
+      <option disabled selected value="">Pick a number (1-10)</option>
+      <option value="1">1</option>
+      <option value="2">2</option>
+      <option value="3">3</option>
+      <option value="4">4</option>
+      <option value="5">5</option>
+      <option value="6">6</option>
+      <option value="7">7</option>
+      <option value="8">8</option>
+      <option value="9">9</option>
+      <option value="10">10</option>
+    </select>
+
+    <select id="color">
+      <option disabled selected value="">Pick a color</option>
+      <option value="red">Red</option>
+      <option value="black">Black</option>
+    </select>
+
+    <button onclick="play()">Play</button>
+  </div>
+
+  <div id="payment-section">
+    <input type="text" id="lnaddress" placeholder="you@speedwallet.me" />
+    <input type="number" id="amount" placeholder="Amount (sats)" min="10" />
+    <button onclick="handlePayment()">💸 Load / Withdraw</button>
+    <div id="qr"></div>
+  </div>
+
+  <div id="result"></div>
+
+  <script>
+    // Firebase Configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyBLQSTLikxLspSh1zpS2xQD7HWnXdosQ2s",
+      authDomain: "mini-roulette-e7c01.firebaseapp.com",
+      projectId: "mini-roulette-e7c01",
+      storageBucket: "mini-roulette-e7c01.firebasestorage.app",
+      messagingSenderId: "665486630930",
+      appId: "1:665486630930:web:3320ec98836ec64f9278cb",
+      measurementId: "G-GZX5JK6K5Y"
+    };
+
+    const app = firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    let user = null;
+    let balance = 0;
+
+    // Update balance UI
+    function updateBalanceUI() {
+      const balanceElem = document.getElementById('balance');
+      balanceElem.textContent = balance;
+      if (balance >= 100) {
+        balanceElem.style.backgroundColor = '#0f04';
+      } else {
+        balanceElem.style.backgroundColor = '#f004';
+      }
+    }
+
+    // Handle payment (Load / Withdraw)
+    function handlePayment() {
+      const choice = prompt("Type 'load' to deposit or 'withdraw' to send sats to your LN address:");
+      const ln = document.getElementById('lnaddress').value.trim();
+      const amount = parseInt(document.getElementById('amount').value);
+      if (!ln || !amount || amount < 10) return alert("Valid LN address and amount required.");
+
+      const qrDiv = document.getElementById('qr');
+      if (choice === 'load') {
+        const lnurl = `lightning:${ln}`;
+        qrDiv.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(lnurl)}&size=200x200" /> 
+          <p>${lnurl}</p>
+          <p><strong>After payment, click to confirm load manually.</strong></p>`;  
+        balance += amount;
+        updateBalanceUI();
+      } else if (choice === 'withdraw') {
+        if (amount > balance) return alert("Insufficient balance.");
+        alert(`Pretending to send ${amount} sats to ${ln}...`);
+        balance -= amount;
+        updateBalanceUI();
+      } else {
+        alert("Invalid option.");
+      }
+    }
+
+    // Play roulette game
+    function play() {
+      const bet = parseInt(document.getElementById('bet').value);
+      const number = parseInt(document.getElementById('number').value);
+      const color = document.getElementById('color').value;
+
+      if (!bet || !number || !color) return alert('Please fill all fields.');
+      if (bet > balance) return alert('Insufficient balance.');
+
+      balance -= bet;
+      updateBalanceUI();
+
+      const numbers = [
+        { number: 1, color: 'red' }, { number: 2, color: 'black' },
+        { number: 3, color: 'red' }, { number: 4, color: 'black' },
+        { number: 5, color: 'red' }, { number: 6, color: 'black' },
+        { number: 7, color: 'red' }, { number: 8, color: 'black' },
+        { number: 9, color: 'red' }, { number: 10, color: 'black' }
+      ];
+
+      const result = numbers[Math.floor(Math.random() * numbers.length)];
+
+      const wheel = document.getElementById('wheel');
+      wheel.style.transform = 'rotate(0deg)';
+      setTimeout(() => {
+        wheel.style.transform = `rotate(${360 * 4 + result.number * 36}deg)`;
+      }, 50);
+
+      document.getElementById('result').textContent = 'Spinning...';
+
+      setTimeout(() => {
+        let win = 0;
+        if (number === result.number) {
+          win = bet * 2;
+        } else if (color === result.color) {
+          win = Math.floor(bet / 2);
+        }
+
+        balance += win;
+        updateBalanceUI();
+        document.getElementById('result').innerHTML = `Result: ${result.number} - ${result.color} → Win: ${win} sats`;
+
+        const li = document.createElement('li');
+        li.textContent = `${result.number} - ${result.color} → +${win} sats`;
+        document.getElementById('history').prepend(li);
+      }, 1700);
+    }
+
+    // Login function
+    function login() {
+      const email = prompt("Enter your email:");
+      const password = prompt("Enter your password:");
+      auth.signInWithEmailAndPassword(email, password)
+        .then((userCredential) => {
+          user = userCredential.user;
+          alert(`Tebrikler, giriş yaptınız, hoşgeldiniz ${user.displayName}`);
+          loadUserData();
+        })
+        .catch((error) => alert(error.message));
+    }
+
+    // Register function
+    function register() {
+      const email = prompt("Enter your email:");
+      const password = prompt("Enter your password:");
+      auth.createUserWithEmailAndPassword(email, password)
+        .then((userCredential) => {
+          user = userCredential.user;
+          alert(`Tebrikler, kayıt oldunuz, hoşgeldiniz ${user.displayName}`);
+          loadUserData();
+        })
+        .catch((error) => alert(error.message));
+    }
+
+    // Logout function
+    function logout() {
+      auth.signOut().then(() => {
+        user = null;
+        alert("Logged out");
+      }).catch((error) => alert(error.message));
+    }
+
+    // Load user data (balance, history)
+    function loadUserData() {
+      if (user) {
+        const userRef = db.collection("users").doc(user.uid);
+        userRef.get().then((doc) => {
+          if (doc.exists) {
+            balance = doc.data().balance || 0;
+            updateBalanceUI();
+          } else {
+            alert("No user data found.");
+          }
+        });
+      }
+    }
+
+    // Save user data (balance)
+    function saveUserData() {
+      if (user) {
+        const userRef = db.collection("users").doc(user.uid);
+        userRef.set({
+          balance: balance
+        }, { merge: true });
+      }
+    }
+  </script>
+</body>
+</html>
